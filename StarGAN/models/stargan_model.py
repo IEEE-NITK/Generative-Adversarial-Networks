@@ -27,14 +27,6 @@ class StarGAN(BaseModel):
         self.beta1 = config.beta1
         self.beta2 = config.beta2
 
-        # Training settings
-        self.dataset = config.dataset
-        self.num_epochs = config.num_epochs
-        self.num_epochs_decay = config.num_epochs_decay
-        self.num_iters = config.num_iters
-        self.num_iters_decay = config.num_iters_decay
-        self.batch_size = config.batch_size
-
         self.use_tensorboard = config.use_tensorboard
         self.build_model()
         self.init_saver()
