@@ -5,20 +5,15 @@ from utils.discriminator import discriminator
 
 
 class StarGAN(BaseModel):
-    def __init__(self, config):
+    def __init__(self, config, data):
         super(StarGAN, self).__init__(config)
 
         # Model hyper-parameters
         self.c_dim = config.c_dim
         self.c2_dim = config.c2_dim
         self.image_size = config.image_size
-        self.g_conv_dim = config.g_conv_dim
-        self.d_conv_dim = config.d_conv_dim
-        self.g_repeat_num = config.g_repeat_num
-        self.d_repeat_num = config.d_repeat_num
-        self.d_train_repeat = config.d_train_repeat
 
-        # Hyper-parameteres
+        # Hyper-parameters
         self.lambda_cls = config.lambda_cls
         self.lambda_rec = config.lambda_rec
         self.lambda_gp = config.lambda_gp
@@ -26,21 +21,20 @@ class StarGAN(BaseModel):
         self.d_lr = config.d_lr
         self.beta1 = config.beta1
         self.beta2 = config.beta2
+        self.x, self.real_labels = data.batch
 
-        self.use_tensorboard = config.use_tensorboard
         self.build_model()
         self.init_saver()
 
     def build_model(self):
         # Model
-        self.x = tf.placeholder(tf.float32, [None, self.image_size, self.image_size, 3], "x")
-        self.alpha = tf.placeholder(tf.float32, [None, 1, 1, 1], "alpha")
-        self.real_labels = tf.placeholder(tf.float32, [None, self.c_dim], "real_labels")
-        self.fake_labels = tf.placeholder(tf.float32, [None, self.c_dim], "fake_labels")
+        self.fake_labels = tf.random_shuffle(self.real_labels)
         self.fake_image = generator(self.x, self.fake_image)
         self.recon_image = generator(self.fake_image, self.real_labels, reuse=True)
         self.real_src, self.real_cls = discriminator(self.x, self.c_dim)
         self.fake_src, self.fake_cls = discriminator(self.fake_image, self.c_dim, reuse=True)
+        self.alpha = tf.random_uniform([tf.shape(self.x)[0], 1, 1, 1], 0.0, 1.0)
+        self.alpha = tf.tile(self.alpha, [1, tf.shape(self.x)[1], tf.shape(self.x)[2], tf.shape(self.x)[3]])
         self.interpolated = tf.multiply(self.alpha, self.x) + tf.multiply(1 - self.alpha, self.fake_image)
         self.int_disc, self.int_cls = discriminator(self.interpolated, self.c_dim, True)
 
@@ -65,8 +59,6 @@ class StarGAN(BaseModel):
         self.g_optim = tf.train.AdamOptimizer(self.g_lr, self.beta1, self.beta2)
         self.d_optim = tf.train.AdamOptimizer(self.d_lr, self.beta1, self.beta2)
 
-
-
     def init_saver(self):
         # initalize the tensorflow saver that will be used in saving the checkpoints.
-        pass
+        saver = tf.train.Saver(max_to_keep=1)

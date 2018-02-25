@@ -19,7 +19,7 @@ def discriminator(x, nd, reuse=False):
         x = lrelu(conv2d(x, 1024, kernel_size=4, strides=[1, 2, 2, 1], name="dis_conv5"))
         x = lrelu(conv2d(x, 2048, kernel_size=4, strides=[1, 2, 2, 1], name="dis_conv6"))
 
-        d_src = conv2d(x, 1, kernel_size=3, strides=[1, 1, 1, 1], name="d_src")
-        d_cls = conv2d(x, nd, kernel_size=size/64, strides=[1, 1, 1, 1], name="d_cls")
+        d_src = conv2d(x, 1, kernel_size=3, strides=[1, 1, 1, 1], name="dis_src")
+        d_cls = conv2d(x, nd, kernel_size=size/64, strides=[1, 1, 1, 1], name="dis_cls")
 
         return d_src, d_cls

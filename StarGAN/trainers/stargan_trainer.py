@@ -9,13 +9,22 @@ class StarGANTrainer(BaseTrain):
         super(StarGANTrainer, self).__init__(sess, model, data, config, logger)
         # Training settings
         self.dataset = config.dataset
-        self.num_epochs_decay = config.num_epochs_decay
         self.num_iters = config.num_iters
-        self.num_iters_decay = config.num_iters_decay
         self.batch_size = config.batch_size
+        self.fixed_c_list = self.make_celebA_labels(model.real_labels)
+        self.fixed_c_list = tf.unstack(self.fixed_c_list, axis=1)
+        self.fixed_c_list = tf.stack(self.fixed_c_list, axis=0)
+
+        gen_vars = [var for var in tf.trainable_variables() if var.name.startswith('gen_')]
+        disc_vars = [var for var in tf.trainable_variables() if var.name.startswith('dis_')]
+        self.g_step = model.g_optim.minimize(model.g_loss, gen_vars)
+        self.d_step = model.d_optim.minimize(model.d_loss, disc_vars)
 
     def train_epoch(self):
-        pass
+        for step in range(self.num_iters):
+            g_loss, d_loss = self.train_step()
+            print("Generator Loss: {}, Discriminator Loss: {}".format(g_loss, d_loss))
+
 
     def make_celebA_labels(self, label):
         """Generate domain labels for CelebA for debugging/testing.
@@ -61,4 +70,9 @@ class StarGANTrainer(BaseTrain):
         return fixed_c_list
 
     def train_step(self):
-        pass
+        for _ in range(5):
+            _, d_loss = self.sess.run([self.d_step, self.model.d_loss])
+
+        _, g_loss = self.sess.run([self.g_step, self.model.g_loss])
+
+        return g_loss, d_loss

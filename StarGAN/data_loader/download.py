@@ -127,8 +127,9 @@ def add_splits(base_path):
         check_link(images_path, basename, test_dir)
 
 if __name__ == '__main__':
-    base_path = './data'
-    prepare_data_dir()
-    download_celeb_a(base_path)
+    base_path = '../data'
+    # prepare_data_dir()
+    # download_celeb_a(base_path)
+    # unzip("../data/img_align_celeba.zip")
     add_splits(base_path)
     download_celeba_attr(base_path)
