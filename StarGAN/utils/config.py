@@ -20,7 +20,8 @@ def get_config_from_json(json_file):
 
 
 def process_config(jsonfile):
+    print(jsonfile)
     config, _ = get_config_from_json(jsonfile)
-    config.summary_dir = os.path.join("../experiments", config.exp_name, "summary")
-    config.checkpoint_dir = os.path.join("../experiments", config.exp_name, "checkpoint")
+    config.summary_dir = os.path.join("experiments", config.exp_name, "summary")
+    config.checkpoint_dir = os.path.join("experiments", config.exp_name, "checkpoint")
     return config

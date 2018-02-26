@@ -15,10 +15,11 @@ class StarGANTrainer(BaseTrain):
         self.fixed_c_list = tf.unstack(self.fixed_c_list, axis=1)
         self.fixed_c_list = tf.stack(self.fixed_c_list, axis=0)
 
-        gen_vars = [var for var in tf.trainable_variables() if var.name.startswith('gen_')]
-        disc_vars = [var for var in tf.trainable_variables() if var.name.startswith('dis_')]
-        self.g_step = model.g_optim.minimize(model.g_loss, gen_vars)
-        self.d_step = model.d_optim.minimize(model.d_loss, disc_vars)
+        gen_vars = [var for var in tf.trainable_variables() if var.name.startswith('generator')]
+        disc_vars = [var for var in tf.trainable_variables() if var.name.startswith('discriminator')]
+
+        self.g_step = model.g_optim.minimize(model.g_loss, var_list=gen_vars)
+        self.d_step = model.d_optim.minimize(model.d_loss, var_list=disc_vars)
 
     def train_epoch(self):
         for step in range(self.num_iters):

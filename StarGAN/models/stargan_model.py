@@ -19,8 +19,8 @@ class StarGAN(BaseModel):
         self.lambda_gp = config.lambda_gp
         self.g_lr = config.g_lr
         self.d_lr = config.d_lr
-        self.beta1 = config.beta1
-        self.beta2 = config.beta2
+        self.beta1 = tf.Variable(config.beta1)
+        self.beta2 = tf.Variable(config.beta2)
         self.x, self.real_labels = data.batch
 
         self.build_model()
@@ -29,7 +29,7 @@ class StarGAN(BaseModel):
     def build_model(self):
         # Model
         self.fake_labels = tf.random_shuffle(self.real_labels)
-        self.fake_image = generator(self.x, self.fake_image)
+        self.fake_image = generator(self.x, self.fake_labels)
         self.recon_image = generator(self.fake_image, self.real_labels, reuse=True)
         self.real_src, self.real_cls = discriminator(self.x, self.c_dim)
         self.fake_src, self.fake_cls = discriminator(self.fake_image, self.c_dim, reuse=True)
@@ -56,8 +56,8 @@ class StarGAN(BaseModel):
         self.g_loss = self.g_fake_loss + self.lambda_rec * self.g_recon_loss
 
         # Optimizer
-        self.g_optim = tf.train.AdamOptimizer(self.g_lr, self.beta1, self.beta2)
-        self.d_optim = tf.train.AdamOptimizer(self.d_lr, self.beta1, self.beta2)
+        self.g_optim = tf.train.AdamOptimizer(self.g_lr, beta1=self.beta1, beta2=self.beta2)
+        self.d_optim = tf.train.AdamOptimizer(self.d_lr, beta1=self.beta1, beta2=self.beta2)
 
     def init_saver(self):
         # initalize the tensorflow saver that will be used in saving the checkpoints.
