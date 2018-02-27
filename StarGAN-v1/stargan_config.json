@@ -1,0 +1,17 @@
+{
+  "c_dim": 5,
+  "c2_dim": 10,
+  "image_size": 128,
+  "lambda_cls": 1,
+  "lambda_gp": 10,
+  "lambda_rec": 10,
+  "g_lr": 0.0001,
+  "d_lr": 0.0001,
+  "beta1": 0.5,
+  "beta2": 0.999,
+  "num_epochs": 20,
+  "num_iters": 5000,
+  "batch_size": 16,
+  "exp_name": "stargan",
+  "dataset": "celebA"
+}
