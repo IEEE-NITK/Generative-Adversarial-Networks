@@ -1,5 +1,8 @@
 import tensorflow as tf
+import time
+from tqdm import tqdm
 from utils.ops import *
+from utils.utils import save_images, image_manifold_size
 from data_loader import DataLoader
 
 
@@ -11,6 +14,7 @@ class StarGAN:
         self.c_dim = config.c_dim
         self.c2_dim = config.c2_dim
         self.image_size = config.image_size
+        self.max_steps = config.max_steps
 
         # Hyper-parameters
         self.lambda_cls = config.lambda_cls
@@ -18,18 +22,20 @@ class StarGAN:
         self.lambda_gp = config.lambda_gp
         self.g_lr = config.g_lr
         self.d_lr = config.d_lr
-        self.beta1 = tf.Variable(config.beta1)
-        self.beta2 = tf.Variable(config.beta2)
+        self.beta1 = config.beta1
+        self.beta2 = config.beta2
         self.x, self.real_labels = data.batch
 
+        self.epochs = config.epochs
+        self.model_dir = config.model_dir
         self.dataset = config.dataset
-        self.num_iters = config.num_iters
         self.batch_size = config.batch_size
-        self.fixed_c_list = self.make_celebA_labels(model.real_labels)
+        self.fixed_c_list = self.make_celebA_labels(self.real_labels)
         self.fixed_c_list = tf.unstack(self.fixed_c_list, axis=1)
         self.fixed_c_list = tf.stack(self.fixed_c_list, axis=0)
 
         self.build_model()
+        self.saver = tf.train.Saver(max_to_keep=1)
 
     def generator(self, x, c, reuse=False):
         with tf.variable_scope("generator"):
@@ -54,7 +60,7 @@ class StarGAN:
                 res1 = relu(conv2d(x_, 256, kernel_size=3, strides=[1, 1, 1, 1], padding=1,
                                    name="gen_res_conv{}_0".format(i)))
                 res2 = conv2d(res1, 256, kernel_size=3, strides=[1, 1, 1, 1], padding=1,
-                              name="gen_res_conv{}_0".format(i))
+                              name="gen_res_conv{}_1".format(i))
                 x = x_ + res2
                 x_ = x
 
@@ -172,5 +178,34 @@ class StarGAN:
         #                 fixed_c_list.append(fixed_c)
         return fixed_c_list
 
-    def train(self):
-        pass
+    def train(self, mode='train'):
+        with self.sess as sess:
+            if mode == 'test' or mode == 'validation':
+                print("loading model from checkpoint")
+                checkpoint = tf.train.latest_checkpoint(self.model_dir)
+                # print(checkpoint)
+                self.saver.restore(sess, checkpoint)
+            else:
+                checkpoint = tf.train.latest_checkpoint(self.model_dir)
+                if checkpoint:
+                    self.saver.restore(sess, checkpoint)
+                    print("Restored from checkpoint")
+
+                start_time = time.time()
+                for epoch in tqdm(range(self.epochs)):
+                    for step in range(self.max_steps):
+                        for _ in range(5):
+                            _, disc_loss = sess.run([self.disc_step, self.d_loss])
+                            _ = sess.run([self.disc_gp_step])
+                        _, gen_loss = sess.run([self.gen_step, self.g_loss])
+
+                        if step % 100 == 0:
+                            print("Time: {}, Epoch: {}, Step: {}, Generator Loss: {}, Discriminator Loss: {}"
+                                  .format(time.time() - start_time, epoch, step, gen_loss, disc_loss))
+                            fake_im = sess.run([self.fake_image])
+                            save_images(fake_im, image_manifold_size(fake_im.shape[0]),
+                                        './samples/train_{:02d}_{:04d}.png'.format(epoch, step))
+                            print('Translated images and saved..!')
+
+                        if step % 1000 == 0:
+                            self.saver.save(sess, self.model_dir)

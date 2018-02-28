@@ -9,9 +9,11 @@
   "d_lr": 0.0001,
   "beta1": 0.5,
   "beta2": 0.999,
-  "num_epochs": 20,
+  "epochs": 20,
   "num_iters": 5000,
   "batch_size": 16,
   "exp_name": "stargan",
-  "dataset": "celebA"
+  "dataset": "celebA",
+  "max_steps": 12750,
+  "model_dir": "./checkpoints"
 }
