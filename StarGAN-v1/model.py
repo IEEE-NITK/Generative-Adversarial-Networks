@@ -63,12 +63,12 @@ class StarGAN:
                               name="gen_res_conv{}_1".format(i))
                 x = x_ + res2
                 x_ = x
-
+            
             x = relu(instance_norm(deconv2d(x, [16, 64, 64, 128], kernel_size=4, strides=[1, 2, 2, 1], padding=1,
                                             name="gen_us_deconv1"), name="gen_in3_1"))
             x = relu(instance_norm(deconv2d(x, [16, 128, 128, 64], kernel_size=4, strides=[1, 2, 2, 1], padding=1,
                                             name="gen_us_deconv2"), name="gen_in3_2"))
-
+            
             x = tanh(conv2d(x, 3, kernel_size=7, strides=[1, 1, 1, 1], padding=3, name="gen_out"))
             return x
 
@@ -90,8 +90,7 @@ class StarGAN:
             x = lrelu(conv2d(x, 2048, kernel_size=4, strides=[1, 2, 2, 1], padding=1, name="dis_conv6"))
 
             d_src = conv2d(x, 1, kernel_size=3, strides=[1, 1, 1, 1], padding=1, name="dis_src")
-            d_cls = conv2d(x, nd, kernel_size=size / 64, strides=[1, 1, 1, 1], name="dis_cls")
-
+            d_cls = conv2d(x, nd, kernel_size=2, strides=[1, 1, 1, 1], padding=0, name="dis_cls")
             return tf.squeeze(d_src), tf.squeeze(d_cls)
 
     def build_model(self):
@@ -179,33 +178,42 @@ class StarGAN:
         return fixed_c_list
 
     def train(self, mode='train'):
-        with self.sess as sess:
-            if mode == 'test' or mode == 'validation':
-                print("loading model from checkpoint")
-                checkpoint = tf.train.latest_checkpoint(self.model_dir)
-                # print(checkpoint)
+        print('Beginning Training: ')
+        # with self.sess as sess:
+        tf.global_variables_initializer().run(session=self.sess)
+
+        if mode == 'test' or mode == 'validation':
+            print("loading model from checkpoint")
+            checkpoint = tf.train.latest_checkpoint(self.model_dir)
+            # print(checkpoint)
+            self.saver.restore(sess, checkpoint)
+        else:
+            checkpoint = tf.train.latest_checkpoint(self.model_dir)
+            if checkpoint:
                 self.saver.restore(sess, checkpoint)
-            else:
-                checkpoint = tf.train.latest_checkpoint(self.model_dir)
-                if checkpoint:
-                    self.saver.restore(sess, checkpoint)
-                    print("Restored from checkpoint")
+                print("Restored from checkpoint")
+            print('Here')
+            start_time = time.time()
+            for epoch in tqdm(range(self.epochs)):
+                for step in range(self.max_steps):
+                    print('Train Step')
+                    labels = self.sess.run(self.real_labels)
+                    print('Labels:')
+                    print(labels)
+                    for _ in range(5):
+                        disc_loss = self.sess.run([self.d_loss])
+                        print('here')
+                        _ = self.sess.run([self.disc_gp_step])
+                        print('After gp')
+                    _, gen_loss = self.sess.run([self.gen_step, self.g_loss])
+                    print('Hello')
+                    if step % 100 == 0:
+                        print("Time: {}, Epoch: {}, Step: {}, Generator Loss: {}, Discriminator Loss: {}"
+                              .format(time.time() - start_time, epoch, step, gen_loss, disc_loss))
+                        fake_im = sess.run([self.fake_image])
+                        save_images(fake_im, image_manifold_size(fake_im.shape[0]),
+                                    './samples/train_{:02d}_{:04d}.png'.format(epoch, step))
+                        print('Translated images and saved..!')
 
-                start_time = time.time()
-                for epoch in tqdm(range(self.epochs)):
-                    for step in range(self.max_steps):
-                        for _ in range(5):
-                            _, disc_loss = sess.run([self.disc_step, self.d_loss])
-                            _ = sess.run([self.disc_gp_step])
-                        _, gen_loss = sess.run([self.gen_step, self.g_loss])
-
-                        if step % 100 == 0:
-                            print("Time: {}, Epoch: {}, Step: {}, Generator Loss: {}, Discriminator Loss: {}"
-                                  .format(time.time() - start_time, epoch, step, gen_loss, disc_loss))
-                            fake_im = sess.run([self.fake_image])
-                            save_images(fake_im, image_manifold_size(fake_im.shape[0]),
-                                        './samples/train_{:02d}_{:04d}.png'.format(epoch, step))
-                            print('Translated images and saved..!')
-
-                        if step % 1000 == 0:
-                            self.saver.save(sess, self.model_dir)
+                    if step % 1000 == 0:
+                        self.saver.save(sess, self.model_dir)
