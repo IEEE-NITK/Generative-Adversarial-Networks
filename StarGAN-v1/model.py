@@ -24,7 +24,7 @@ class StarGAN:
         self.d_lr = config.d_lr
         self.beta1 = config.beta1
         self.beta2 = config.beta2
-        self.x, self.real_labels = data.batch
+        self.x, self.real_labels = data.load_dataset()
 
         self.epochs = config.epochs
         self.model_dir = config.model_dir
