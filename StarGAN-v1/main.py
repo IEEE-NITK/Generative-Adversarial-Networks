@@ -11,8 +11,8 @@ def main():
     except:
         print("Missing Arguments")
         exit(0)
-    data = DataLoader("./data/celebA/images/", "./data/celebA/list_attr_celeba.txt", 178, 128, 16, "train")
     sess = tf.Session()
+    data = DataLoader(sess, "./data/celebA/images/", "./data/celebA/list_attr_celeba.txt", 178, 128, 16, "train")
     stargan = StarGAN(sess, config, data)
     stargan.train()
 

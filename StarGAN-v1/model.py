@@ -24,7 +24,8 @@ class StarGAN:
         self.d_lr = config.d_lr
         self.beta1 = config.beta1
         self.beta2 = config.beta2
-        self.x, self.real_labels = data.load_dataset()
+        self.iter = data.load_dataset()
+        self.x, self.real_labels = self.iter.get_next()
 
         self.epochs = config.epochs
         self.model_dir = config.model_dir
@@ -180,6 +181,7 @@ class StarGAN:
     def train(self, mode='train'):
         print('Beginning Training: ')
         # with self.sess as sess:
+        sess = self.sess
         tf.global_variables_initializer().run(session=self.sess)
 
         if mode == 'test' or mode == 'validation':
@@ -197,16 +199,17 @@ class StarGAN:
             for epoch in tqdm(range(self.epochs)):
                 for step in range(self.max_steps):
                     print('Train Step')
-                    labels = self.sess.run(self.real_labels)
-                    print('Labels:')
-                    print(labels)
                     for _ in range(5):
+                        self.x, self.real_labels = self.iter.get_next()
                         disc_loss = self.sess.run([self.d_loss])
                         print('here')
                         _ = self.sess.run([self.disc_gp_step])
                         print('After gp')
+
+                    self.x, self.real_labels = self.iter.get_next()
                     _, gen_loss = self.sess.run([self.gen_step, self.g_loss])
                     print('Hello')
+
                     if step % 100 == 0:
                         print("Time: {}, Epoch: {}, Step: {}, Generator Loss: {}, Discriminator Loss: {}"
                               .format(time.time() - start_time, epoch, step, gen_loss, disc_loss))
