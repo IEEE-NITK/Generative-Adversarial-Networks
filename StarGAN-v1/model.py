@@ -111,6 +111,7 @@ class StarGAN:
         self.d_loss_cls = tf.keras.backend.binary_crossentropy(self.real_labels, self.real_cls, from_logits=True) / self.batch_size
         self.d_fake_loss = tf.reduce_mean(self.fake_src)
         self.d_loss = self.d_real_loss + self.d_fake_loss + self.lambda_cls * self.d_loss_cls
+        self.d_loss_ = tf.reduce_mean(self.d_loss)
 
         # Gradient Penalty
         grads = tf.gradients(self.int_disc, [self.interpolated])[0]
@@ -123,6 +124,7 @@ class StarGAN:
         self.g_recon_loss = tf.reduce_mean(tf.abs(self.x - self.recon_image))
         self.g_loss_cls = tf.keras.backend.binary_crossentropy(self.fake_labels, self.fake_cls, from_logits=True) / self.batch_size
         self.g_loss = self.g_fake_loss + self.lambda_rec * self.g_recon_loss + self.lambda_cls * self.g_loss_cls
+        self.g_loss_ = tf.reduce_mean(self.g_loss)
 
         # Optimizer
         disc_vars = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]
@@ -194,26 +196,22 @@ class StarGAN:
             if checkpoint:
                 self.saver.restore(sess, checkpoint)
                 print("Restored from checkpoint")
-            print('Here')
             start_time = time.time()
             for epoch in tqdm(range(self.epochs)):
                 for step in range(self.max_steps):
-                    print('Train Step')
-                    for _ in range(5):
+                    for _ in range(3):
                         self.x, self.real_labels = self.iter.get_next()
                         disc_loss = self.sess.run([self.d_loss])
-                        print('here')
                         _ = self.sess.run([self.disc_gp_step])
-                        print('After gp')
 
                     self.x, self.real_labels = self.iter.get_next()
                     _, gen_loss = self.sess.run([self.gen_step, self.g_loss])
-                    print('Hello')
 
-                    if step % 100 == 0:
+                    if step % 10 == 0:
+                        gen_loss, disc_loss = sess.run([self.g_loss_, self.d_loss_])
                         print("Time: {}, Epoch: {}, Step: {}, Generator Loss: {}, Discriminator Loss: {}"
                               .format(time.time() - start_time, epoch, step, gen_loss, disc_loss))
-                        fake_im = sess.run([self.fake_image])
+                        fake_im = sess.run(self.fake_image)
                         save_images(fake_im, image_manifold_size(fake_im.shape[0]),
                                     './samples/train_{:02d}_{:04d}.png'.format(epoch, step))
                         print('Translated images and saved..!')
