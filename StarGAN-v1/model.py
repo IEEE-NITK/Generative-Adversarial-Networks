@@ -109,38 +109,38 @@ class StarGAN:
         self.interpolated = tf.multiply(self.alpha, self.x) + tf.multiply(1 - self.alpha, self.fake_image)
         self.int_disc, self.int_cls = self.discriminator(self.interpolated, self.c_dim, True)
 
-        # Discriminator Losses
-        self.d_real_loss = - tf.reduce_mean(self.real_src)
-        self.d_loss_cls = tf.keras.backend.binary_crossentropy(self.real_labels, self.real_cls, from_logits=True) / self.batch_size
-        self.d_fake_loss = tf.reduce_mean(self.fake_src)
-        self.d_loss = self.d_real_loss + self.d_fake_loss + self.lambda_cls * self.d_loss_cls
-        self.d_loss_ = tf.reduce_mean(self.d_loss)
-
         # Gradient Penalty
         grads = tf.gradients(self.int_disc, [self.interpolated])[0]
         slopes = tf.sqrt(tf.reduce_sum(tf.square(grads), axis=[1, ]))
         grad_penalty = tf.reduce_mean(tf.square(slopes - 1.))
         self.grad_loss = self.lambda_gp * grad_penalty
 
+        # Discriminator Losses
+        self.d_real_loss = - tf.reduce_mean(self.real_src)
+        self.d_loss_cls = tf.keras.backend.binary_crossentropy(self.real_labels, self.real_cls, from_logits=True) / self.batch_size
+        self.d_fake_loss = tf.reduce_mean(self.fake_src)
+        self.d_loss = self.d_real_loss + self.d_fake_loss + self.lambda_cls * self.d_loss_cls
+        self.d_loss = tf.reduce_mean(self.d_loss) + self.grad_loss
+
         # Generator Losses
         self.g_fake_loss = - tf.reduce_mean(self.fake_src)
         self.g_recon_loss = tf.reduce_mean(tf.abs(self.x - self.recon_image))
         self.g_loss_cls = tf.keras.backend.binary_crossentropy(self.fake_labels, self.fake_cls, from_logits=True) / self.batch_size
         self.g_loss = self.g_fake_loss + self.lambda_rec * self.g_recon_loss + self.lambda_cls * self.g_loss_cls
-        self.g_loss_ = tf.reduce_mean(self.g_loss)
+        self.g_loss = tf.reduce_mean(self.g_loss)
 
         # Optimizer
         disc_vars = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]
         gen_vars = [var for var in tf.trainable_variables() if var.name.startswith("generator")]
         self.g_optim = tf.train.AdamOptimizer(self.g_lr, beta1=self.beta1, beta2=self.beta2)
         self.d_optim = tf.train.AdamOptimizer(self.d_lr, beta1=self.beta1, beta2=self.beta2)
-        self.d_gp_optim = tf.train.AdamOptimizer(self.d_lr, beta1=self.beta1, beta2=self.beta2)
-        self.disc_grads_and_vars = self.d_optim.compute_gradients(self.d_loss, var_list=disc_vars)
-        self.disc_step = self.d_optim.apply_gradients(self.disc_grads_and_vars)
-        self.gen_grads_and_vars = self.g_optim.compute_gradients(self.g_loss, var_list=gen_vars)
-        self.gen_step = self.g_optim.apply_gradients(self.gen_grads_and_vars)
-        self.disc_gp_grads_and_vars = self.d_gp_optim.compute_gradients(self.grad_loss, var_list=disc_vars)
-        self.disc_gp_step = self.d_gp_optim.apply_gradients(self.disc_gp_grads_and_vars)
+        # self.d_gp_optim = tf.train.AdamOptimizer(self.d_lr, beta1=self.beta1, beta2=self.beta2)
+        # self.disc_grads_and_vars = self.d_optim.compute_gradients(self.d_loss, var_list=disc_vars)
+        self.disc_step = self.d_optim.minimize(self.d_loss, var_list=disc_vars)
+        # self.gen_grads_and_vars = self.g_optim.compute_gradients(self.g_loss, var_list=gen_vars)
+        self.gen_step = self.g_optim.minimize(self.g_loss, var_list=gen_vars)
+        # self.disc_gp_grads_and_vars = self.d_gp_optim.compute_gradients(self.grad_loss, var_list=disc_vars)
+        # self.disc_gp_step = self.d_gp_optim.apply_gradients(self.disc_gp_grads_and_vars)
 
     # def build_model_multi(self):
     #     self.fake_labels1 = tf.random_shuffle(self.real_labels1)
@@ -208,8 +208,8 @@ class StarGAN:
                 for step in range(self.max_steps):
                     for _ in range(5):
                         self.x, self.real_labels = self.iter.get_next()
-                        disc_loss = self.sess.run([self.d_loss])
-                        _ = self.sess.run([self.disc_gp_step])
+                        _, disc_loss = self.sess.run([self.disc_step, self.d_loss])
+                        # _ = self.sess.run([self.disc_gp_step])
 
                     self.x, self.real_labels = self.iter.get_next()
                     _, gen_loss = self.sess.run([self.gen_step, self.g_loss])
