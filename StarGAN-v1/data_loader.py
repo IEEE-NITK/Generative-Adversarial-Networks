@@ -72,9 +72,11 @@ class DataLoader:
     def process_data(self, imagepath, label):
         image = tf.read_file(imagepath)
         image = tf.image.decode_image(image, channels=3)
+        image = tf.cast(image, tf.float32)
         image = tf.image.resize_image_with_crop_or_pad(image, self.crop_size, self.crop_size)
         image = tf.image.resize_images(image, [self.image_size, self.image_size])  # bilinear
         image.set_shape([self.image_size, self.image_size, 3])
-        image *= 2
-        image -= 1
+        image = tf.div(image, tf.constant(255.0))
+        # image *= 2
+        # image -= 1
         return image, label

@@ -27,6 +27,11 @@ class StarGAN:
         self.iter = data.load_dataset()
         self.x, self.real_labels = self.iter.get_next()
 
+        # self.iter1 = data.load_dataset1()
+        # self.x1, self.real_labels1 = self.iter1.get_next()
+        # self.iter2 = data.load_dataset2()
+        # self.x2, self.real_labels2 = self.iter2.get_next()
+
         self.epochs = config.epochs
         self.model_dir = config.model_dir
         self.dataset = config.dataset
@@ -79,8 +84,6 @@ class StarGAN:
                 tf.get_variable_scope().reuse_variables()
             else:
                 assert tf.get_variable_scope().reuse is False
-
-            size = x.get_shape()[1].value
 
             x = lrelu(conv2d(x, 64, kernel_size=4, strides=[1, 2, 2, 1], padding=1, name="dis_conv1"))
 
@@ -138,6 +141,10 @@ class StarGAN:
         self.gen_step = self.g_optim.apply_gradients(self.gen_grads_and_vars)
         self.disc_gp_grads_and_vars = self.d_gp_optim.compute_gradients(self.grad_loss, var_list=disc_vars)
         self.disc_gp_step = self.d_gp_optim.apply_gradients(self.disc_gp_grads_and_vars)
+
+    # def build_model_multi(self):
+    #     self.fake_labels1 = tf.random_shuffle(self.real_labels1)
+    #     self.fake_labels2 = tf.random_shuffle(self.real_labels2)
 
     def make_celebA_labels(self, label):
         """Generate domain labels for CelebA for debugging/testing.
@@ -199,7 +206,7 @@ class StarGAN:
             start_time = time.time()
             for epoch in tqdm(range(self.epochs)):
                 for step in range(self.max_steps):
-                    for _ in range(3):
+                    for _ in range(5):
                         self.x, self.real_labels = self.iter.get_next()
                         disc_loss = self.sess.run([self.d_loss])
                         _ = self.sess.run([self.disc_gp_step])
@@ -207,7 +214,7 @@ class StarGAN:
                     self.x, self.real_labels = self.iter.get_next()
                     _, gen_loss = self.sess.run([self.gen_step, self.g_loss])
 
-                    if step % 10 == 0:
+                    if step % 50 == 0:
                         gen_loss, disc_loss = sess.run([self.g_loss_, self.d_loss_])
                         print("Time: {}, Epoch: {}, Step: {}, Generator Loss: {}, Discriminator Loss: {}"
                               .format(time.time() - start_time, epoch, step, gen_loss, disc_loss))
