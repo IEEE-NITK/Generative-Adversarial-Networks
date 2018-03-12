@@ -215,7 +215,7 @@ class StarGAN:
                     _, gen_loss = self.sess.run([self.gen_step, self.g_loss])
 
                     if step % 50 == 0:
-                        gen_loss, disc_loss = sess.run([self.g_loss_, self.d_loss_])
+                        gen_loss, disc_loss = sess.run([self.g_loss, self.d_loss])
                         print("Time: {}, Epoch: {}, Step: {}, Generator Loss: {}, Discriminator Loss: {}"
                               .format(time.time() - start_time, epoch, step, gen_loss, disc_loss))
                         fake_im = sess.run(self.fake_image)
