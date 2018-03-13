@@ -17,8 +17,6 @@ class DataLoader:
         self.crop_size = crop_size
         self.batch_size = batch_size
 
-        random.seed(7)
-
     def load_dataset(self):
         imagepaths, labels = list(), list()
         attrs = self.lines[1].split()

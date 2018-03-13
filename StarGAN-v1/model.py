@@ -4,6 +4,7 @@ from tqdm import tqdm
 from utils.ops import *
 from utils.utils import save_images, image_manifold_size
 from data_loader import DataLoader
+from utils.optim import OptimisticAdam
 
 
 class StarGAN:
@@ -43,6 +44,11 @@ class StarGAN:
         self.build_model()
         self.saver = tf.train.Saver(max_to_keep=1)
 
+    def generate_fake_labels(self):
+        l1 = tf.random_shuffle(self.real_labels[:, :3])
+        l2 = tf.cast(tf.random_uniform([self.batch_size, 1], 0, 2, dtype=tf.int32), dtype=tf.float32)
+        return tf.concat([l1, l2], axis=1)
+
     def generator(self, x, c, reuse=False):
         with tf.variable_scope("generator"):
             if reuse:
@@ -69,12 +75,12 @@ class StarGAN:
                               name="gen_res_conv{}_1".format(i))
                 x = x_ + res2
                 x_ = x
-            
+
             x = relu(instance_norm(deconv2d(x, [16, 64, 64, 128], kernel_size=4, strides=[1, 2, 2, 1], padding=1,
                                             name="gen_us_deconv1"), name="gen_in3_1"))
             x = relu(instance_norm(deconv2d(x, [16, 128, 128, 64], kernel_size=4, strides=[1, 2, 2, 1], padding=1,
                                             name="gen_us_deconv2"), name="gen_in3_2"))
-            
+
             x = tanh(conv2d(x, 3, kernel_size=7, strides=[1, 1, 1, 1], padding=3, name="gen_out"))
             return x
 
@@ -99,7 +105,7 @@ class StarGAN:
 
     def build_model(self):
         # Model
-        self.fake_labels = tf.random_shuffle(self.real_labels)
+        self.fake_labels = self.generate_fake_labels()
         self.fake_image = self.generator(self.x, self.fake_labels)
         self.recon_image = self.generator(self.fake_image, self.real_labels, reuse=True)
         self.real_src, self.real_cls = self.discriminator(self.x, self.c_dim)
@@ -117,7 +123,8 @@ class StarGAN:
 
         # Discriminator Losses
         self.d_real_loss = - tf.reduce_mean(self.real_src)
-        self.d_loss_cls = tf.keras.backend.binary_crossentropy(self.real_labels, self.real_cls, from_logits=True) / self.batch_size
+        self.d_loss_cls = tf.keras.backend.binary_crossentropy(self.real_labels, self.real_cls,
+                                                               from_logits=True) / self.batch_size
         self.d_fake_loss = tf.reduce_mean(self.fake_src)
         self.d_loss = self.d_real_loss + self.d_fake_loss + self.lambda_cls * self.d_loss_cls
         self.d_loss = tf.reduce_mean(self.d_loss) + self.grad_loss
@@ -125,15 +132,16 @@ class StarGAN:
         # Generator Losses
         self.g_fake_loss = - tf.reduce_mean(self.fake_src)
         self.g_recon_loss = tf.reduce_mean(tf.abs(self.x - self.recon_image))
-        self.g_loss_cls = tf.keras.backend.binary_crossentropy(self.fake_labels, self.fake_cls, from_logits=True) / self.batch_size
+        self.g_loss_cls = tf.keras.backend.binary_crossentropy(self.fake_labels, self.fake_cls,
+                                                               from_logits=True) / self.batch_size
         self.g_loss = self.g_fake_loss + self.lambda_rec * self.g_recon_loss + self.lambda_cls * self.g_loss_cls
         self.g_loss = tf.reduce_mean(self.g_loss)
 
         # Optimizer
         disc_vars = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]
         gen_vars = [var for var in tf.trainable_variables() if var.name.startswith("generator")]
-        self.g_optim = tf.train.AdamOptimizer(self.g_lr, beta1=self.beta1, beta2=self.beta2)
-        self.d_optim = tf.train.AdamOptimizer(self.d_lr, beta1=self.beta1, beta2=self.beta2)
+        self.g_optim = OptimisticAdam(self.g_lr, beta1=self.beta1, beta2=self.beta2)
+        self.d_optim = OptimisticAdam(self.d_lr, beta1=self.beta1, beta2=self.beta2)
         # self.d_gp_optim = tf.train.AdamOptimizer(self.d_lr, beta1=self.beta1, beta2=self.beta2)
         # self.disc_grads_and_vars = self.d_optim.compute_gradients(self.d_loss, var_list=disc_vars)
         self.disc_step = self.d_optim.minimize(self.d_loss, var_list=disc_vars)
@@ -207,21 +215,22 @@ class StarGAN:
             for epoch in tqdm(range(self.epochs)):
                 for step in range(self.max_steps):
                     for _ in range(5):
-                        self.x, self.real_labels = self.iter.get_next()
+                        # self.x, self.real_labels = self.iter.get_next()
                         _, disc_loss = self.sess.run([self.disc_step, self.d_loss])
                         # _ = self.sess.run([self.disc_gp_step])
 
-                    self.x, self.real_labels = self.iter.get_next()
+                    # self.x, self.real_labels = self.iter.get_next()
                     _, gen_loss = self.sess.run([self.gen_step, self.g_loss])
 
-                    if step % 50 == 0:
-                        gen_loss, disc_loss = sess.run([self.g_loss, self.d_loss])
-                        print("Time: {}, Epoch: {}, Step: {}, Generator Loss: {}, Discriminator Loss: {}"
+                    if step % 100 == 0:
+                        print("Time: {:.4f}, Epoch: {}, Step: {}, Generator Loss: {:.4f}, Discriminator Loss: {:.4f}"
                               .format(time.time() - start_time, epoch, step, gen_loss, disc_loss))
-                        fake_im = sess.run(self.fake_image)
+                        fake_im, real_im = sess.run([self.fake_image, self.x])
                         save_images(fake_im, image_manifold_size(fake_im.shape[0]),
                                     './samples/train_{:02d}_{:04d}.png'.format(epoch, step))
+                        save_images(real_im, image_manifold_size(real_im.shape[0]),
+                                    './samples/train_{:02d}_{:04d}_real.png'.format(epoch, step))
                         print('Translated images and saved..!')
 
-                    if step % 1000 == 0:
+                    if step % 500 == 0:
                         self.saver.save(sess, self.model_dir)
