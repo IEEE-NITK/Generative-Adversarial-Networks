@@ -15,5 +15,5 @@
   "exp_name": "stargan",
   "dataset": "celebA",
   "max_steps": 12750,
-  "model_dir": "./checkpoints"
+  "model_dir": "./checkpoints/"
 }

@@ -232,5 +232,5 @@ class StarGAN:
                                     './samples/train_{:02d}_{:04d}_real.png'.format(epoch, step))
                         print('Translated images and saved..!')
 
-                    if step % 500 == 0:
+                    if step % 200 == 0:
                         self.saver.save(sess, self.model_dir)
