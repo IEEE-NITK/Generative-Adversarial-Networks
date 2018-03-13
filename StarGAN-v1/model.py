@@ -5,6 +5,7 @@ from utils.ops import *
 from utils.utils import save_images, image_manifold_size
 from data_loader import DataLoader
 from utils.optim import OptimisticAdam
+import os
 
 
 class StarGAN:
@@ -195,6 +196,38 @@ class StarGAN:
         #                 fixed_c_list.append(fixed_c)
         return fixed_c_list
 
+    @property
+    def model_dir_(self):
+        return "{}_{}_{}_{}".format(
+            'default', self.batch_size,
+            self.image_size, self.image_size)
+
+    def save(self, checkpoint_dir, step):
+        model_name = "StarGAN.model"
+        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir_)
+
+        if not os.path.exists(checkpoint_dir):
+            os.makedirs(checkpoint_dir)
+
+        self.saver.save(self.sess,
+                        os.path.join(checkpoint_dir, model_name),
+                        global_step=step)
+
+    def load(self, checkpoint_dir):
+        import re
+        print("Reading checkpoints...")
+        checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir_)
+
+        ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+        if ckpt and ckpt.model_checkpoint_path:
+            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+            counter = int(next(re.finditer("(\d+)(?!.*\d)", ckpt_name)).group(0))
+            print("Successfully read {}".format(ckpt_name))
+            return True, counter
+        else:
+            return False, 0
+
     def train(self, mode='train'):
         print('Beginning Training: ')
         # with self.sess as sess:
@@ -207,14 +240,21 @@ class StarGAN:
             # print(checkpoint)
             self.saver.restore(sess, checkpoint)
         else:
-            checkpoint = tf.train.latest_checkpoint(self.model_dir)
-            if checkpoint:
-                self.saver.restore(sess, checkpoint)
-                print("Restored from checkpoint")
+            # checkpoint = tf.train.latest_checkpoint(self.model_dir)
+            # if checkpoint:
+            #     self.saver.restore(sess, checkpoint)
+            #     print("Restored from checkpoint")
+            counter = 0
+            could_load, checkpoint_counter = self.load(self.model_dir)
+            if could_load:
+                counter = checkpoint_counter
+                print("Successfully loaded checkpoint")
+            else:
+                print("Failed to load checkpoint")
             start_time = time.time()
             labels = open("samples/labels.txt", "w")
             for epoch in tqdm(range(self.epochs)):
-                for step in tqdm(range(self.max_steps)):
+                for step in tqdm(range(counter, self.max_steps)):
                     for _ in range(5):
                         # self.x, self.real_labels = self.iter.get_next()
                         _, disc_loss = self.sess.run([self.disc_step, self.d_loss])
@@ -228,11 +268,11 @@ class StarGAN:
                               .format(time.time() - start_time, epoch, step, gen_loss, disc_loss))
                         fake_im, real_im, fake_l, real_l = sess.run([self.fake_image, self.x, self.fake_labels, self.real_labels])
                         save_images(fake_im, image_manifold_size(fake_im.shape[0]),
-                                    './samples/train_{:02d}_{:06d}_adam.png'.format(epoch, step))
+                                    './samples/train_{:02d}_{:06d}.png'.format(epoch, step))
                         save_images(real_im, image_manifold_size(real_im.shape[0]),
                                     './samples/train_{:02d}_{:06d}_real.png'.format(epoch, step))
                         labels.write("{:02d}_{:06d}:\nReal Labels -\n{}\nFake Labels -\n{}\n".format(epoch, step, str(real_l), str(fake_l)))
                         print('Translated images and saved..!')
 
                     if step % 200 == 0:
-                        self.saver.save(sess, self.model_dir)
+                        self.save(self.model_dir, step)
