@@ -15,8 +15,8 @@ import tensorflow as tf
 class OptimisticAdam(optimizer.Optimizer):
 
     def __init__(self, learning_rate=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8,
-                 use_locking=False, name="Adamirror"):
-        super(AdamirrorOptimizer, self).__init__(use_locking, name)
+                 use_locking=False, name="OptimisticAdam"):
+        super(OptimisticAdam, self).__init__(use_locking, name)
         self._lr = learning_rate
         self._beta1 = beta1
         self._beta2 = beta2

@@ -46,7 +46,7 @@ class StarGAN:
 
     def generate_fake_labels(self):
         l1 = tf.random_shuffle(self.real_labels[:, :3])
-        l2 = tf.cast(tf.random_uniform([self.batch_size, 1], 0, 2, dtype=tf.int32), dtype=tf.float32)
+        l2 = tf.cast(tf.random_uniform([self.batch_size, 2], 0, 2, dtype=tf.int32), dtype=tf.float32)
         return tf.concat([l1, l2], axis=1)
 
     def generator(self, x, c, reuse=False):
@@ -140,8 +140,8 @@ class StarGAN:
         # Optimizer
         disc_vars = [var for var in tf.trainable_variables() if var.name.startswith("discriminator")]
         gen_vars = [var for var in tf.trainable_variables() if var.name.startswith("generator")]
-        self.g_optim = OptimisticAdam(self.g_lr, beta1=self.beta1, beta2=self.beta2)
-        self.d_optim = OptimisticAdam(self.d_lr, beta1=self.beta1, beta2=self.beta2)
+        self.g_optim = tf.train.AdamOptimizer(self.g_lr, beta1=self.beta1, beta2=self.beta2)
+        self.d_optim = tf.train.AdamOptimizer(self.d_lr, beta1=self.beta1, beta2=self.beta2)
         # self.d_gp_optim = tf.train.AdamOptimizer(self.d_lr, beta1=self.beta1, beta2=self.beta2)
         # self.disc_grads_and_vars = self.d_optim.compute_gradients(self.d_loss, var_list=disc_vars)
         self.disc_step = self.d_optim.minimize(self.d_loss, var_list=disc_vars)
@@ -212,8 +212,9 @@ class StarGAN:
                 self.saver.restore(sess, checkpoint)
                 print("Restored from checkpoint")
             start_time = time.time()
+            labels = open("samples/labels.txt", "w")
             for epoch in tqdm(range(self.epochs)):
-                for step in range(self.max_steps):
+                for step in tqdm(range(self.max_steps)):
                     for _ in range(5):
                         # self.x, self.real_labels = self.iter.get_next()
                         _, disc_loss = self.sess.run([self.disc_step, self.d_loss])
@@ -225,11 +226,12 @@ class StarGAN:
                     if step % 100 == 0:
                         print("Time: {:.4f}, Epoch: {}, Step: {}, Generator Loss: {:.4f}, Discriminator Loss: {:.4f}"
                               .format(time.time() - start_time, epoch, step, gen_loss, disc_loss))
-                        fake_im, real_im = sess.run([self.fake_image, self.x])
+                        fake_im, real_im, fake_l, real_l = sess.run([self.fake_image, self.x, self.fake_labels, self.real_labels])
                         save_images(fake_im, image_manifold_size(fake_im.shape[0]),
-                                    './samples/train_{:02d}_{:04d}.png'.format(epoch, step))
+                                    './samples/train_{:02d}_{:06d}_adam.png'.format(epoch, step))
                         save_images(real_im, image_manifold_size(real_im.shape[0]),
-                                    './samples/train_{:02d}_{:04d}_real.png'.format(epoch, step))
+                                    './samples/train_{:02d}_{:06d}_real.png'.format(epoch, step))
+                        labels.write("{:02d}_{:06d}:\nReal Labels -\n{}\nFake Labels -\n{}\n".format(epoch, step, str(real_l), str(fake_l)))
                         print('Translated images and saved..!')
 
                     if step % 200 == 0:
