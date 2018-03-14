@@ -252,7 +252,7 @@ class StarGAN:
             else:
                 print("Failed to load checkpoint")
             start_time = time.time()
-            labels = open("samples/labels.txt", "w")
+            labels = open("samples/labels.txt", "w+")
             for epoch in tqdm(range(self.epochs)):
                 for step in tqdm(range(counter, self.max_steps)):
                     for _ in range(5):
@@ -276,3 +276,4 @@ class StarGAN:
 
                     if step % 200 == 0:
                         self.save(self.model_dir, step)
+                        print("Checkpoint saved")
