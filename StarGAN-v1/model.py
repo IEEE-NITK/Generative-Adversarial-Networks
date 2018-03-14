@@ -202,8 +202,8 @@ class StarGAN:
             'default', self.batch_size,
             self.image_size, self.image_size)
 
-    def save(self, checkpoint_dir, step):
-        model_name = "StarGAN.model"
+    def save(self, checkpoint_dir, step, epoch):
+        model_name = "StarGAN.model_{:02d}".format(epoch)
         checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir_)
 
         if not os.path.exists(checkpoint_dir):
@@ -222,11 +222,13 @@ class StarGAN:
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
             self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+            m = ckpt_name.find("model")
+            epoch = int(ckpt_name[m+6: m+8])
             counter = int(next(re.finditer("(\d+)(?!.*\d)", ckpt_name)).group(0))
             print("Successfully read {}".format(ckpt_name))
-            return True, counter
+            return True, counter, epoch
         else:
-            return False, 0
+            return False, 0, 0
 
     def train(self, mode='train'):
         print('Beginning Training: ')
@@ -245,16 +247,21 @@ class StarGAN:
             #     self.saver.restore(sess, checkpoint)
             #     print("Restored from checkpoint")
             counter = 0
-            could_load, checkpoint_counter = self.load(self.model_dir)
+            ep = 0
+            could_load, checkpoint_counter, checkpoint_epoch = self.load(self.model_dir)
             if could_load:
+                ep = checkpoint_epoch
                 counter = checkpoint_counter
                 print("Successfully loaded checkpoint")
             else:
                 print("Failed to load checkpoint")
             start_time = time.time()
             labels = open("samples/labels.txt", "w+")
-            for epoch in tqdm(range(self.epochs)):
+            for epoch in tqdm(range(ep, self.epochs)):
                 for step in tqdm(range(counter, self.max_steps)):
+                    if step - counter == 2106:
+                        x, _ = sess.run([self.x, self.real_labels])
+                        continue
                     for _ in range(5):
                         # self.x, self.real_labels = self.iter.get_next()
                         _, disc_loss = self.sess.run([self.disc_step, self.d_loss])
@@ -275,5 +282,6 @@ class StarGAN:
                         print('Translated images and saved..!')
 
                     if step % 200 == 0:
-                        self.save(self.model_dir, step)
+                        self.save(self.model_dir, step, epoch)
                         print("Checkpoint saved")
+                counter = 0
