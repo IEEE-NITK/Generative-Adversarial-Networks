@@ -256,15 +256,18 @@ class StarGAN:
             else:
                 print("Failed to load checkpoint")
             start_time = time.time()
-            labels = open("samples/labels.txt", "w+")
+            labels = open("samples/labels.txt", "a")
             for epoch in tqdm(range(ep, self.epochs)):
                 for step in tqdm(range(counter, self.max_steps)):
-                    if step - counter == 2106:
+                    if step - counter in range(2101, 2116):
                         x, _ = sess.run([self.x, self.real_labels])
+                        print(x.shape)
                         continue
                     for _ in range(5):
                         # self.x, self.real_labels = self.iter.get_next()
-                        _, disc_loss = self.sess.run([self.disc_step, self.d_loss])
+                        _, disc_loss, x = self.sess.run([self.disc_step, self.d_loss, self.x])
+                        if step - counter > 2110:
+                            print(x.shape)
                         # _ = self.sess.run([self.disc_gp_step])
 
                     # self.x, self.real_labels = self.iter.get_next()
