@@ -23,12 +23,6 @@ def preprocess(filename):
     # h = np.sqrt(image.shape[0] // 3)
     # print(h)
     # print()
-    filename = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    sample = io.imread(filename)
-    sample = resize(sample, [128, 128, 3])
-    plt.imshow(sample)
-    plt.show()
-    print(sample.shape)
     # arr = np.asarray(image.read(), dtype="float32")
     return sample
 
