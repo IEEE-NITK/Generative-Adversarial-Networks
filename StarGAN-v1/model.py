@@ -26,6 +26,8 @@ class StarGAN:
         self.d_lr = config.d_lr
         self.beta1 = config.beta1
         self.beta2 = config.beta2
+        # self.im_in = tf.placeholder(dtype=tf.float32, shape=[1, 128, 128, 3])
+        self.im_in_label = tf.placeholder(dtype=tf.float32, shape=[1, 5])
         self.iter = data.load_dataset()
         self.x, self.real_labels = self.iter.get_next()
 
@@ -84,6 +86,53 @@ class StarGAN:
 
             x = tanh(conv2d(x, 3, kernel_size=7, strides=[1, 1, 1, 1], padding=3, name="gen_out"))
             return x
+    
+    def get_sample(self, c, reuse=False):
+        with tf.variable_scope("generator"):
+            if reuse:
+                tf.get_variable_scope().reuse_variables()
+            else:
+                assert tf.get_variable_scope().reuse is False
+
+            imagepath = './demo-server/uploads/sample.png'
+            image = tf.read_file(imagepath)
+            image = tf.image.decode_image(image, channels=3)
+            image = tf.cast(image, tf.float32)
+            image = tf.image.resize_image_with_crop_or_pad(image, 256, 256)
+            image = tf.image.resize_images(image, [128, 128])  # bilinear
+            image.set_shape([128, 128, 3])
+            image = tf.div(image, tf.constant(255.0))
+            x = tf.expand_dims(image, 0)
+            x = tf.tile(image, [16, 1, 1, 1])
+
+            c = tf.expand_dims(tf.expand_dims(c, 1), 1)
+            c = tf.tile(c, [16, x.get_shape()[1].value, x.get_shape()[2].value, 1])
+            # x = tf.tile(x, [16, 1, 1, 1])
+            x = tf.concat([x, c], axis=3)
+
+            x = relu(instance_norm(conv2d(x, 64, kernel_size=7, strides=[1, 1, 1, 1], padding=3, name="gen_ds_conv1"),
+                                   name="gen_in1_1"))
+            x = relu(instance_norm(conv2d(x, 128, kernel_size=4, strides=[1, 2, 2, 1], padding=1, name="gen_ds_conv2"),
+                                   name="gen_in1_2"))
+            x = relu(instance_norm(conv2d(x, 256, kernel_size=4, strides=[1, 2, 2, 1], padding=1, name="gen_ds_conv3"),
+                                   name="gen_in1_3"))
+
+            x_ = x
+            for i in range(6):
+                res1 = relu(conv2d(x_, 256, kernel_size=3, strides=[1, 1, 1, 1], padding=1,
+                                   name="gen_res_conv{}_0".format(i)))
+                res2 = conv2d(res1, 256, kernel_size=3, strides=[1, 1, 1, 1], padding=1,
+                              name="gen_res_conv{}_1".format(i))
+                x = x_ + res2
+                x_ = x
+
+            x = relu(instance_norm(deconv2d(x, [16, 64, 64, 128], kernel_size=4, strides=[1, 2, 2, 1], padding=1,
+                                            name="gen_us_deconv1"), name="gen_in3_1"))
+            x = relu(instance_norm(deconv2d(x, [16, 128, 128, 64], kernel_size=4, strides=[1, 2, 2, 1], padding=1,
+                                            name="gen_us_deconv2"), name="gen_in3_2"))
+
+            x = tanh(conv2d(x, 3, kernel_size=7, strides=[1, 1, 1, 1], padding=3, name="gen_out"))
+            return x
 
     def discriminator(self, x, nd, reuse=False):
         with tf.variable_scope("discriminator"):
@@ -109,6 +158,7 @@ class StarGAN:
         self.fake_labels = self.generate_fake_labels()
         self.fake_image = self.generator(self.x, self.fake_labels)
         self.recon_image = self.generator(self.fake_image, self.real_labels, reuse=True)
+        self.gen_sample = self.get_sample(self.im_in_label, reuse=True)
         self.real_src, self.real_cls = self.discriminator(self.x, self.c_dim)
         self.fake_src, self.fake_cls = self.discriminator(self.fake_image, self.c_dim, reuse=True)
         self.alpha = tf.random_uniform([tf.shape(self.x)[0], 1, 1, 1], 0.0, 1.0)
@@ -180,20 +230,6 @@ class StarGAN:
         age = tf.concat([fixed_c[:, :, :3], rev[:, :, 3:4], fixed_c[:, :, 4:]], 2)
         gender = tf.concat([fixed_c[:, :, :4], rev[:, :, 4:]], 2)
         fixed_c_list = tf.concat([black, blond, brown, age, gender], 1)
-
-        # multi-attribute transfer (H+G, H+A, G+A, H+G+A)
-        # TODO
-        #         if self.dataset == 'CelebA':
-        #             for i in range(4):
-        #                 fixed_c = label
-        #                 for c in fixed_c:
-        #                     if i in [0, 1, 3]:   # Hair color to brown
-        #                         c[:3] = y[2]
-        #                     if i in [0, 2, 3]:   # Gender
-        #                         c[3] = 0 if c[3] == 1 else 1
-        #                     if i in [1, 2, 3]:   # Aged
-        #                         c[4] = 0 if c[4] == 1 else 1
-        #                 fixed_c_list.append(fixed_c)
         return fixed_c_list
 
     @property
