@@ -26,7 +26,7 @@ class StarGAN:
         self.d_lr = config.d_lr
         self.beta1 = config.beta1
         self.beta2 = config.beta2
-        # self.im_in = tf.placeholder(dtype=tf.float32, shape=[1, 128, 128, 3])
+        self.im_in = tf.placeholder(dtype=tf.string, shape=[1])
         self.im_in_label = tf.placeholder(dtype=tf.float32, shape=[1, 5])
         self.iter = data.load_dataset()
         self.x, self.real_labels = self.iter.get_next()
@@ -87,23 +87,25 @@ class StarGAN:
             x = tanh(conv2d(x, 3, kernel_size=7, strides=[1, 1, 1, 1], padding=3, name="gen_out"))
             return x
     
-    def get_sample(self, c, reuse=False):
+    def get_sample(self, x_s, c, reuse=False):
         with tf.variable_scope("generator"):
             if reuse:
                 tf.get_variable_scope().reuse_variables()
             else:
                 assert tf.get_variable_scope().reuse is False
 
-            imagepath = './demo-server/uploads/sample.png'
+            imagepath = x_s[0]
             image = tf.read_file(imagepath)
             image = tf.image.decode_image(image, channels=3)
             image = tf.cast(image, tf.float32)
-            image = tf.image.resize_image_with_crop_or_pad(image, 256, 256)
+            image = tf.image.resize_image_with_crop_or_pad(image, 178, 178)
             image = tf.image.resize_images(image, [128, 128])  # bilinear
             image.set_shape([128, 128, 3])
             image = tf.div(image, tf.constant(255.0))
+            
             x = tf.expand_dims(image, 0)
-            x = tf.tile(image, [16, 1, 1, 1])
+            print(x.get_shape())
+            x = tf.tile(x, [16, 1, 1, 1])
 
             c = tf.expand_dims(tf.expand_dims(c, 1), 1)
             c = tf.tile(c, [16, x.get_shape()[1].value, x.get_shape()[2].value, 1])
@@ -158,7 +160,7 @@ class StarGAN:
         self.fake_labels = self.generate_fake_labels()
         self.fake_image = self.generator(self.x, self.fake_labels)
         self.recon_image = self.generator(self.fake_image, self.real_labels, reuse=True)
-        self.gen_sample = self.get_sample(self.im_in_label, reuse=True)
+        self.gen_sample = self.get_sample(self.im_in, self.im_in_label, reuse=True)
         self.real_src, self.real_cls = self.discriminator(self.x, self.c_dim)
         self.fake_src, self.fake_cls = self.discriminator(self.fake_image, self.c_dim, reuse=True)
         self.alpha = tf.random_uniform([tf.shape(self.x)[0], 1, 1, 1], 0.0, 1.0)
