@@ -2,9 +2,8 @@
 /.ipynb_checkpoints
 /__pycache__
 /.idea
-/experiments
-/base/__pycache__
-/data_loader/__pycache__
-/models/__pycache__
-/trainers/__pycache__
+/checkpoints
 /utils/__pycache__
+/samples
+/samples_old
+/demo_images

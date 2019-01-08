@@ -1,0 +1,10 @@
+/data
+/.ipynb_checkpoints
+/__pycache__
+/.idea
+/experiments
+/base/__pycache__
+/data_loader/__pycache__
+/models/__pycache__
+/trainers/__pycache__
+/utils/__pycache__
